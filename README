@@ -1,0 +1,7 @@
+# readme file for python file utility
+
+This utility is designed for QA purposes. The idea is to read metadata and 
+unicode into document repository fields for later search, indexing, display 
+and sort testing.
+
+# the end
