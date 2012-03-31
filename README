@@ -4,4 +4,9 @@ This utility is designed for QA purposes. The idea is to read metadata and
 unicode into document repository fields for later search, indexing, display 
 and sort testing.
 
+ cd existing_git_repo
+  git remote add origin git@github.com:fmomaloney/file_query.git
+  git push -u origin master
+ 
+
 # the end
