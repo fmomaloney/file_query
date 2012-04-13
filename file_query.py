@@ -2,7 +2,7 @@
 """
 This program is intended to be pointed at a directory that contains TXT files. 
 The program will then create a CSV (sep=, quote=") or HTML file that includes 
-metadata about the files and some columns populated with file text (where applicable).
+metadata about the files and a column populated with file text (where applicable).
 """
 
 import optparse, os, sys, re
@@ -12,67 +12,70 @@ def main():
     # get the options passed in or parsererror
     opts, paths = process_options()
     # need to make these arguments into globals to pass them around, apparently
-    TEXT_FIELD_CHARS = opts.text_size
-    LIST_FIELD_CHARS = opts.list_size
-    MEMO_FIELD_CHARS = opts.memo_size
+    EXTRACTED_TEXT = opts.text_size
     RECURSE = opts.recursive
     MYALL = opts.all
 
-    # create filename based on format specified
-    if (opts.file_format.lower() == 'csv' or opts.file_format.lower() == 'html'):
+    # allow HTML file, else default to CSV writing
+    if (opts.file_format.lower() == 'html'):
         FILE_FORMAT = opts.file_format.lower()
     else:
-        FILE_FORMAT = 'dat' 
-    # I should join here...
-    FILE_NAME = 'datafile' + '.' + FILE_FORMAT
-    #output1 = subprocess.check_output('file *',shell=True,)
+        FILE_FORMAT = 'csv' 
+    FILE_NAME = 'datafile.'.join(FILE_FORMAT)
     
     # test INDIR directory exists and is accessible
-    INDIR,OUTDIR = (paths[0],paths[1])
-    print("INDIR = {}".format(INDIR))
+    INDIR = (paths[0])
     try:
         os.chdir(INDIR)
     except OSError as inputerr:
         print("Could not read directory {}! Try again!\n{}".format(os.path.realpath(INDIR),inputerr))
-        return
+        return 
 
-    # test writing to OUTDIR directory is allowed
+    # get filelist per user options, bail if nothing returned
+    myfiles = get_filenames(RECURSE, MYALL)
+    if len(myfiles) < 1:
+        print("No files in directory {}! Use --all?\n".format(os.path.realpath(INDIR)))
+        return 
+
+    # get metadata for the files in list
+    mydict = get_metadata(myfiles)
+
+    # append extracted text to mydict
+    mydict = get_filetext(mydict,EXTRACTED_TEXT)
+
+    # Put the datafile in same dir as this script. Simpler that way.
+    # WRITE_PATH = os.path.join(os.path.dirname(__file__),FILE_NAME)
+    # print("write path = {} or {}!".format(os.path.realpath(os.path.dirname(__file__)),os.path.realpath(WRITE_PATH)))
     WFILE = None
-    # having some trouble getting the outfile to work. Writing to INDIR location currently... 
-    outfile = os.path.join(os.path.realpath(OUTDIR),FILE_NAME)
-    print("OUTDIR = {}".format(outfile))
+    #os.chdir(WRITE_PATH)
+    # os.chdir($HOME)
+    #os.chdir(os.path.dirname(sys.argv[0]))
+    abspath = os.path.abspath(__file__)
+    dname = os.path.dirname(abspath)
+    os.chdir(dname)
+
+    print("go here{}\n".format(os.path.realpath(sys.argv[0])))
+
     try:
-        WFILE = open(outfile, mode='wt',encoding='utf-8')
+        WFILE = open(FILE_NAME, mode='wt',encoding='utf-8')
     except EnvironmentError as openerr:
-        print("Could not open {} for writing!".format(openerr))
+        print("Could not open {} for writing!\n".format(WRITE_PATH))
     else:
-        # ready to read data and write output file
-        print("Writing data file = {} to directory {}\n".format(FILE_NAME,os.path.realpath(paths[1])))
-        # get filelist per user options 
-        myfiles = get_filenames(RECURSE, MYALL)
-
-        # get metadata for the files in list
-        mydict = get_metadata(myfiles)
-
-        # get filedata from TXT files and add to mydict
-        mydict = get_filetext(mydict,TEXT_FIELD_CHARS,LIST_FIELD_CHARS,MEMO_FIELD_CHARS)
-
         # write out mydict data in user specified format
-        write_file(WFILE, mydict, FILE_FORMAT)
-
-        print("dict size is {} ".format(len(mydict)))
-        #for file in myfiles:
-        for file in mydict.keys():
-             print("file is {}!".format(file)) 
-
+        write_csv(WFILE, mydict, FILE_FORMAT)
     finally:
         if WFILE is not None:
             WFILE.close()
 
+    # debug stuff
+    print("dict size is {} ".format(len(mydict)))
+    for file in mydict.keys():
+         print("file is {}!".format(file)) 
+
 def process_options():
     parser = optparse.OptionParser(
-    usage = ("%prog INDIR OUTDIR [options] " 
-    "\nThis program writes CSV or HTML metadata files to OUTDIR from readable files in INDIR."
+    usage = ("%prog INDIR [options] " 
+    "\nThis program writes CSV or HTML files with metadata from readable files in INDIR."
     "\nUse --help or -h to see options."))
 
     parser.add_option("--all", dest="all",
@@ -83,21 +86,18 @@ def process_options():
             help=("recurse into subdirectories (but not .hidden) [default: off]"))
     parser.add_option("--text-size", dest="text_size", type='int',
             help=("number of characters read into text field [default: %default]"))
-    parser.add_option("--memo-size", dest="memo_size", type='int',
-            help=("number of characters read into text field [default: %default]"))
-    parser.add_option("--list-size", dest="list_size", type='int',
-            help=("number of characters read into text field [default: %default]"))    
     parser.add_option("-f", "--format", action="store", type="string", dest="file_format",
             help=("Format of output file may be CSV or HTML [default: %default]"))    
-
-    parser.set_defaults(text_size=20,list_size=20,memo_size=100,file_format="CSV")
+    parser.set_defaults(text_size=200,file_format="CSV")
     opts, args = parser.parse_args()
 
-    if len(args) < 2: 
-        parser.error("both IN and OUT directories must be specified!\n")
-    elif (opts.text_size + opts.list_size + opts.memo_size > 2000):
+    # a parser error quits after message
+    if len(args) < 1: 
+        parser.error("IN directory must be specified!\n")
+    elif (opts.text_size > 2000):
         parser.error("you are reading too much text! please ask for less!\n")
     return opts, args
+
 
 def get_filenames(recurse, all_files):
     """
@@ -105,7 +105,6 @@ def get_filenames(recurse, all_files):
     Note that we CWD prior to function call, so walking from .
     If recurse, walk. Otherwise, use os.listdir.
     """ 
-
     mylist = []
     if (recurse):
         # I've totally given up on os.walk, so do the directory walking manually
@@ -140,14 +139,14 @@ def get_filenames(recurse, all_files):
                 mylist.append(os.path.realpath(files))
     return mylist
 
+
 def get_metadata(filelist): 
     '''
     This function takes a list of filenames and returns a dict including metadata associated with each file.
     The dictionary key is the file name plus path from get_filenames(). Use subprocess to run "file" and "wc".
     '''
-    mydict = {}
 
-    # here is a helper function from stack overflow. I added the regex stuff.
+    # wc function. Some of this from stack overflow. I added the regex stuff.
     def count_words(fname):
         p = subprocess.Popen(['wc', fname], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         result, err = p.communicate()
@@ -173,6 +172,7 @@ def get_metadata(filelist):
         z = re.sub(mypat,'File',y)
         return z
 
+    mydict = {}
     for fullname in filelist: 
         # get some metadata. In a unix env, I will want to call `file` and `wc` and add that data to dict
         (filename,extension) = os.path.splitext(fullname)
@@ -192,14 +192,16 @@ def get_metadata(filelist):
         mydict[fullname].update({'filename':shortname,'extension':extension,'fsize':fsize,'wc_cmd':wordcount,'file_cmd':unixfile})
     return mydict
 
-def get_filetext(mydict,textchar,listchar,memochar):
+
+
+def get_filetext(mydict,textchar):
     # let's put an assertion in for specified text too large 
-    assert (textchar + listchar + memochar < 20000), "too much text requested!"
+    assert (textchar < 20000), "too much text requested!"
 
     # helper function to add empty values to dict if error occurs
     # will ensure that all rows have same number of columns
     def writeblanks(fullname): 
-        myblank = {'TEXT':'NA','LIST':'NA','MEMO':'NA','MEMOASC':'NA'}
+        myblank = {'TEXT':'NA','TEXTASC':'NA'}
         mydict[fullname].update(myblank)
 
     # open filename from dictionary key
@@ -217,22 +219,18 @@ def get_filetext(mydict,textchar,listchar,memochar):
                 # populate the dict with file text
                 try: 
                     achar = myfile.read(int(textchar))
-                    bchar = myfile.read(int(listchar))
-                    cchar = myfile.read(int(memochar))
                 except (UnicodeDecodeError,UnicodeEncodeError) as texterr:
                     # think about closing and reopening text file as binary here?
                     writeblanks(fullname)
                     mydict[fullname]['ERROR'] = 'This file was not (all) unicode!'
                 except EOFError as eoferr:
                     writeblanks(fullname)
-                    mydict[fullname]['ERROR'] = 'Ran into the the EOF in this file!'
+                    mydict[fullname]['ERROR'] = 'Ran into End Of File!'
                 else:
                     # read succeeded, replace string newlines with "<NL>"
                     aachar = achar.replace('\n','<NL>')
-                    bbchar = bchar.replace('\n','<NL>')
-                    ccchar = cchar.replace('\n','<NL>')
                     # now append the text to the dict, Jim Dean's idea
-                    mytext = {'TEXT':aachar,'LIST':bbchar,'MEMO':ccchar,'MEMOASC':ascii(ccchar),'ERROR':'none'}
+                    mytext = {'TEXT':aachar,'TEXTASC':ascii(aachar),'ERROR':'none'}
                     mydict[fullname].update(mytext)
             finally:
                 if myfile is not None:
@@ -243,10 +241,11 @@ def get_filetext(mydict,textchar,listchar,memochar):
             mydict[fullname]['ERROR'] = 'Not Text'        
     return mydict
 
-def write_file(fhandle,mydict,FORMAT):
+
+def write_csv(fhandle,mydict,FORMAT):
     '''
-    This function writes out mydict data in the format specified by user (DAT, CSV or HTML)
-    Note that key to mydict is full filename.
+    This function writes out mydict data in the format specified by user (CSV or HTML)
+    Note that key to mydict is filename + path.
     ''' 
     if FORMAT == 'html':
         print("writing an HTML file!")
@@ -255,13 +254,10 @@ def write_file(fhandle,mydict,FORMAT):
 
         writer = csv.writer(fhandle, quoting=csv.QUOTE_ALL)
         # write the CSV header
-        writer.writerow( ('fullname','file name','extension','file size','word count','file description','text field','list field','memo field','memo field ASC','errors') )
+        writer.writerow( ('fullname','file name','extension','file size','word count','file description','text field','text field ASC','errors') )
         # do I want to write sorted keys here?
         for myfile in mydict.keys():
-
-            #writer.writerow(file_info[key] for key in ['filename', 'extension', 'fsize', 'TEXT', 'ASCTEXT', 'LIST', 'MEMO', 'ERROR']])
-
-            writer.writerow( (myfile,mydict[myfile]['filename'],mydict[myfile]['extension'],mydict[myfile]['fsize'],mydict[myfile]['wc_cmd'],mydict[myfile]['file_cmd'],mydict[myfile]['TEXT'],mydict[myfile]['LIST'],mydict[myfile]['MEMO'],mydict[myfile]['MEMOASC'],mydict[myfile]['ERROR']) )
+            writer.writerow( (myfile,mydict[myfile]['filename'],mydict[myfile]['extension'],mydict[myfile]['fsize'],mydict[myfile]['wc_cmd'],mydict[myfile]['file_cmd'],mydict[myfile]['TEXT'],mydict[myfile]['TEXTASC'],mydict[myfile]['ERROR']) )
     else: 
         print("writing a DAT file!")
     return 1
