@@ -5,10 +5,13 @@ The program will then create a CSV (sep=, quote=") or HTML file that includes
 metadata about the files and a column populated with file text (where applicable).
 """
 
-import optparse, os, sys, re
+import optparse, os, sys, re, time
 import glob, csv, subprocess
 
 def main():
+    # Seems that __file__ is totally getting lost after a chdir (windows and linux). 
+    # So just save the path when the script is started, and change back after reading files.
+    ORIG = os.path.dirname(os.path.realpath(sys.argv[0]))
     # get the options passed in or parsererror
     opts, paths = process_options()
     # need to make these arguments into globals to pass them around, apparently
@@ -16,12 +19,12 @@ def main():
     RECURSE = opts.recursive
     MYALL = opts.all
 
-    # allow HTML file, else default to CSV writing
-    if (opts.file_format.lower() == 'html'):
+    # allow HTML file, else default to CSV writing, also put a timestamp into filename
+    if (opts.file_format.lower() == '.html'):
         FILE_FORMAT = opts.file_format.lower()
     else:
-        FILE_FORMAT = 'csv' 
-    FILE_NAME = 'datafile.'.join(FILE_FORMAT)
+        FILE_FORMAT = '.csv' 
+    FILE_NAME = 'datafile_' + str(int(time.time())) + FILE_FORMAT
     
     # test INDIR directory exists and is accessible
     INDIR = (paths[0])
@@ -43,23 +46,15 @@ def main():
     # append extracted text to mydict
     mydict = get_filetext(mydict,EXTRACTED_TEXT)
 
-    # Put the datafile in same dir as this script. Simpler that way.
-    # WRITE_PATH = os.path.join(os.path.dirname(__file__),FILE_NAME)
-    # print("write path = {} or {}!".format(os.path.realpath(os.path.dirname(__file__)),os.path.realpath(WRITE_PATH)))
     WFILE = None
-    #os.chdir(WRITE_PATH)
-    # os.chdir($HOME)
-    #os.chdir(os.path.dirname(sys.argv[0]))
-    abspath = os.path.abspath(__file__)
-    dname = os.path.dirname(abspath)
-    os.chdir(dname)
-
-    print("go here{}\n".format(os.path.realpath(sys.argv[0])))
-
+    # Put the datafile in same dir as this script. Simpler that way.
+    os.chdir(ORIG)
+    #print("moved here {} and dirname = {}\n".format(os.getcwd(),os.path.dirname(os.path.realpath(sys.argv[0]))))
+ 
     try:
         WFILE = open(FILE_NAME, mode='wt',encoding='utf-8')
     except EnvironmentError as openerr:
-        print("Could not open {} for writing!\n".format(WRITE_PATH))
+        print("Could not open {} for writing!\n".format(FILE_NAME))
     else:
         # write out mydict data in user specified format
         write_csv(WFILE, mydict, FILE_FORMAT)
@@ -247,19 +242,16 @@ def write_csv(fhandle,mydict,FORMAT):
     This function writes out mydict data in the format specified by user (CSV or HTML)
     Note that key to mydict is filename + path.
     ''' 
-    if FORMAT == 'html':
+    if FORMAT == '.html':
         print("writing an HTML file!")
-    elif FORMAT == 'csv': 
+    else : 
         print("writing a CSV file!")
-
         writer = csv.writer(fhandle, quoting=csv.QUOTE_ALL)
         # write the CSV header
         writer.writerow( ('fullname','file name','extension','file size','word count','file description','text field','text field ASC','errors') )
         # do I want to write sorted keys here?
         for myfile in mydict.keys():
             writer.writerow( (myfile,mydict[myfile]['filename'],mydict[myfile]['extension'],mydict[myfile]['fsize'],mydict[myfile]['wc_cmd'],mydict[myfile]['file_cmd'],mydict[myfile]['TEXT'],mydict[myfile]['TEXTASC'],mydict[myfile]['ERROR']) )
-    else: 
-        print("writing a DAT file!")
     return 1
 
 main()
