@@ -20,8 +20,8 @@ def main():
     MYALL = opts.all
 
     # allow HTML file, else default to CSV writing, also put a timestamp into filename
-    if (opts.file_format.lower() == '.html'):
-        FILE_FORMAT = opts.file_format.lower()
+    if (opts.file_format.lower() == 'html'):
+        FILE_FORMAT = '.html'
     else:
         FILE_FORMAT = '.csv' 
     FILE_NAME = 'datafile_' + str(int(time.time())) + FILE_FORMAT
@@ -57,7 +57,7 @@ def main():
         print("Could not open {} for writing!\n".format(FILE_NAME))
     else:
         # write out mydict data in user specified format
-        write_csv(WFILE, mydict, FILE_FORMAT)
+        write_file(WFILE, mydict, FILE_FORMAT)
     finally:
         if WFILE is not None:
             WFILE.close()
@@ -188,7 +188,6 @@ def get_metadata(filelist):
     return mydict
 
 
-
 def get_filetext(mydict,textchar):
     # let's put an assertion in for specified text too large 
     assert (textchar < 20000), "too much text requested!"
@@ -237,17 +236,41 @@ def get_filetext(mydict,textchar):
     return mydict
 
 
-def write_csv(fhandle,mydict,FORMAT):
+def write_file(fhandle,mydict,FORMAT):
     '''
     This function writes out mydict data in the format specified by user (CSV or HTML)
-    Note that key to mydict is filename + path.
+    Note that key to mydict is filename + full path.
     ''' 
     if FORMAT == '.html':
+        counter = 0 
+        # print the html manually. I don't want any dependencies in this script.
         print("writing an HTML file!")
+        fhandle.write('<HTML><HEAD><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/></HEAD>\n')
+        # style for alternating row colors
+        fhandle.write('<style type="text/css">tr.d0 td {background-color: #A9F5D0; color: black;}tr.d1 td {background-color: #F4FA58; color: blue;}</style>\n')
+        #fhandle.write('<style type="text/css">tr.d0 td {background-color: #CC9999; color: black;}tr.d1 td {background-color: #9999CC; color: black;}</style>\n')
+        fhandle.write("<BODY><H3>datafile view<H3><BR>\n") 
+        fhandle.write("<TABLE border=1>\n") 
+        fhandle.write('<TR class="d0"><TH>Full Name</TH><TH>File Name</TH><TH>Extension</TH><TH>File Size</TH><TH>Word Count</TH><TH>File Description</TH>') 
+        fhandle.write("<TH>Text Field</TH><TH>Text Field ASC</TH><TH>Error</TH></TR>\n") 
+        for myfile in mydict.keys():
+            # counter seems a dumb way to do alt row colors, but I can't enumerate over a dict
+            counter+=1
+            if (counter % 2):
+                rowstyle = 'class="d1"'
+            else:
+                rowstyle = 'class="d0"'
+            # don't write more than 100 rows of HTML
+            if counter < 101: 
+                fhandle.write('<TR ' + rowstyle + '><TD>' + myfile + '</TD><TD>' + mydict[myfile]['filename'] + '</TD><TD>' + mydict[myfile]['extension'] + '</TD><TD>' + mydict[myfile]['fsize'] + '</TD>')
+                fhandle.write('<TD>' + mydict[myfile]['wc_cmd'] + '</TD><TD>' + mydict[myfile]['file_cmd'] + '</TD><TD>' + mydict[myfile]['TEXT'] + '</TD><TD>' + mydict[myfile]['TEXTASC'] + '</TD><TD>' + mydict[myfile]['ERROR'] + '</TD></TR>\n')
+        fhandle.write("</TABLE>\n") 
+        fhandle.write("</BODY></HTML>\n") 
+        return 1
+
     else : 
         print("writing a CSV file!")
         writer = csv.writer(fhandle, quoting=csv.QUOTE_ALL)
-        # write the CSV header
         writer.writerow( ('fullname','file name','extension','file size','word count','file description','text field','text field ASC','errors') )
         # do I want to write sorted keys here?
         for myfile in mydict.keys():
