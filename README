@@ -1,10 +1,17 @@
 # readme file for python file utility
 
-This utility is designed for QA purposes. The idea is to read metadata and 
-unicode into document repository fields for later search, indexing, display 
-and sort testing.
+This utility was written to import UTF8 text data from a set of data files.
+Data may be exported to CSV format, or viewed as HTML. Metadata about the files
+is also provided. The original purpose of script was internationalization test
+of web application and Lucene text index.
 
-This is written in Python 3.1. Will put up a 2.7 version. 
+This script is written in Python3. All imported packages are included with python.
+I intend to put a python 2.7 version alongside soon. The script should work in 
+Linux or Windows, though 'wc' and 'file' metadata will not be available in Windows.
 
+Usage: 
+./file_query.py /home/fmalone/Desktop/ --text-size 200 -f html --all
+
+Open the example .HTML data file in a browser for view of output.
 
 # the end

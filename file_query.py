@@ -63,9 +63,9 @@ def main():
             WFILE.close()
 
     # debug stuff
-    print("dict size is {} ".format(len(mydict)))
-    for file in mydict.keys():
-         print("file is {}!".format(file)) 
+    print("dict size is {} files!\n".format(len(mydict)))
+    #for file in mydict.keys():
+    #     print("file is {}!".format(file)) 
 
 def process_options():
     parser = optparse.OptionParser(
@@ -83,13 +83,13 @@ def process_options():
             help=("number of characters read into text field [default: %default]"))
     parser.add_option("-f", "--format", action="store", type="string", dest="file_format",
             help=("Format of output file may be CSV or HTML [default: %default]"))    
-    parser.set_defaults(text_size=200,file_format="CSV")
+    parser.set_defaults(text_size=500,file_format="CSV")
     opts, args = parser.parse_args()
 
     # a parser error quits after message
     if len(args) < 1: 
         parser.error("IN directory must be specified!\n")
-    elif (opts.text_size > 2000):
+    elif (opts.text_size > 10000):
         parser.error("you are reading too much text! please ask for less!\n")
     return opts, args
 
@@ -189,7 +189,7 @@ def get_metadata(filelist):
 
 
 def get_filetext(mydict,textchar):
-    # let's put an assertion in for specified text too large 
+    # let's put an assertion in for specified text too large. this is redundant, no?
     assert (textchar < 20000), "too much text requested!"
 
     # helper function to add empty values to dict if error occurs
@@ -243,17 +243,18 @@ def write_file(fhandle,mydict,FORMAT):
     ''' 
     if FORMAT == '.html':
         counter = 0 
-        # print the html manually. I don't want any dependencies in this script.
+        # print the html manually. I don't want any package dependencies in this script.
         print("writing an HTML file!")
-        fhandle.write('<HTML><HEAD><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/></HEAD>\n')
+        htmlheader = '<HTML>\n<HEAD><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>\n'
         # style for alternating row colors
-        fhandle.write('<style type="text/css">tr.d0 td {background-color: #A9F5D0; color: black;}tr.d1 td {background-color: #F4FA58; color: blue;}</style>\n')
-        #fhandle.write('<style type="text/css">tr.d0 td {background-color: #CC9999; color: black;}tr.d1 td {background-color: #9999CC; color: black;}</style>\n')
-        fhandle.write("<BODY><H3>datafile view<H3><BR>\n") 
-        fhandle.write("<TABLE border=1>\n") 
-        fhandle.write('<TR class="d0"><TH>Full Name</TH><TH>File Name</TH><TH>Extension</TH><TH>File Size</TH><TH>Word Count</TH><TH>File Description</TH>') 
-        fhandle.write("<TH>Text Field</TH><TH>Text Field ASC</TH><TH>Error</TH></TR>\n") 
+        stylestr = '<STYLE type="text/css">tr.d0 td {background-color: #A9F5BC; color: black;}tr.d1 td {background-color: #F2F5A9; color: blue;}</STYLE></HEAD>\n'
+        pageheader = '<BODY>\n<H3>datafile view<H3><BR>\n' 
+        starttable = '<TABLE border=1>\n<TR><TH>Full Name</TH><TH>File Name</TH><TH>Extension</TH><TH>File Size</TH><TH>Word Count</TH><TH>File Description</TH><TH>Text Field</TH><TH>Text Field ASC</TH><TH>Error</TH></TR>\n'
+        fhandle.write(htmlheader + stylestr + pageheader + starttable)
         for myfile in mydict.keys():
+            # writing out the fields in the order of the header
+            fieldlist =[mydict[myfile]['filename'], mydict[myfile]['extension'], mydict[myfile]['fsize'], mydict[myfile]['wc_cmd'], mydict[myfile]['file_cmd'], mydict[myfile]['TEXT'], mydict[myfile]['TEXTASC'], mydict[myfile]['ERROR']]
+            tablecontent = '</TD><TD>'.join(fieldlist)
             # counter seems a dumb way to do alt row colors, but I can't enumerate over a dict
             counter+=1
             if (counter % 2):
@@ -262,12 +263,9 @@ def write_file(fhandle,mydict,FORMAT):
                 rowstyle = 'class="d0"'
             # don't write more than 100 rows of HTML
             if counter < 101: 
-                fhandle.write('<TR ' + rowstyle + '><TD>' + myfile + '</TD><TD>' + mydict[myfile]['filename'] + '</TD><TD>' + mydict[myfile]['extension'] + '</TD><TD>' + mydict[myfile]['fsize'] + '</TD>')
-                fhandle.write('<TD>' + mydict[myfile]['wc_cmd'] + '</TD><TD>' + mydict[myfile]['file_cmd'] + '</TD><TD>' + mydict[myfile]['TEXT'] + '</TD><TD>' + mydict[myfile]['TEXTASC'] + '</TD><TD>' + mydict[myfile]['ERROR'] + '</TD></TR>\n')
-        fhandle.write("</TABLE>\n") 
-        fhandle.write("</BODY></HTML>\n") 
+                fhandle.write('<TR ' + rowstyle + '><TD>' + myfile + '</TD><TD>' + tablecontent + '</TD></TR>\n') 
+        fhandle.write("</TABLE>\n</BODY>\n</HTML>\n") 
         return 1
-
     else : 
         print("writing a CSV file!")
         writer = csv.writer(fhandle, quoting=csv.QUOTE_ALL)
