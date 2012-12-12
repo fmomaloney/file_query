@@ -5,13 +5,24 @@ Data may be exported to CSV format, or viewed as HTML. Metadata about the files
 is also provided. The original purpose of script was internationalization test
 of web application and Lucene text index.
 
-This script is written in Python3. All imported packages are included with python.
-I intend to put a python 2.7 version alongside soon. The script should work in 
-Linux or Windows, though 'wc' and 'file' metadata will not be available in Windows.
+This script is written in Python 3.1. All imported packages are included with python.
+The script should work in Linux or Windows, though 'wc' and 'file' may not work in Windows.
 
 Usage: 
 ./file_query.py /home/fmalone/Desktop/ --text-size 200 -f html --all
 
 Open the example .HTML data file in a browser for view of output.
+
+
+Update: file_query seems to be completely functional on my Windows XP machine. Likely due to unix utilities included with Cygwin.
+
+fmalone@H30966 /cygdrive/c/MyPy_home
+$ head -1 file_query.py
+#!C:\Python31\python.exe
+
+fmalone@H30966 /cygdrive/c/MyPy_home
+$ which wc; which file
+/usr/bin/wc
+/usr/bin/file
 
 # the end
